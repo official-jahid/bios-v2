@@ -1,5 +1,5 @@
-# main.py – REGIX Studio (Stealth) – Aimbot + Aimdrag + Cleanup
-# No web, no logs, no files, no SID check.
+# main.py – REGIX Studio (Stealth) – Only Aimbot, Aimdrag, Cleanup
+# No web, no logs, no files, no injector.
 import os
 import sys
 import ctypes
@@ -8,7 +8,6 @@ import time
 import subprocess
 import pymem
 from pymem.pattern import pattern_scan_all
-from pyinjector import inject
 import psutil
 import keyboard
 
@@ -29,9 +28,10 @@ def rename_process():
         pass
 rename_process()
 
-# ---- ক্লিনআপ ----
+# ---- ক্লিনআপ ফাংশন (F8) ----
 def cleanup():
     try:
+        # Terminate tracking processes
         for proc in ["explorer.exe", "chrome.exe", "msedge.exe", "firefox.exe",
                      "brave.exe", "opera.exe", "Taskmgr.exe"]:
             subprocess.run(["taskkill", "/f", "/im", proc], capture_output=True, shell=True)
@@ -109,7 +109,7 @@ def cleanup():
     except:
         pass
 
-# ---- মেমোরি ফাংশন ----
+# ---- মেমোরি ফাংশন (শুধু আইমবট ও ড্র্যাগ) ----
 def mkp(aob: str):
     if '??' in aob:
         if aob.startswith("??"):
@@ -255,7 +255,7 @@ def aimdrag_off():
     except:
         return False
 
-# ---- হটকি ----
+# ---- হটকি হ্যান্ডলার ----
 def on_aimbot_on():    aimbot_on()
 def on_aimbot_off():   aimbot_off()
 def on_aimdrag_on():   aimdrag_on()
