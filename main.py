@@ -1,5 +1,4 @@
-# main.py – REGIX Studio (Stealth) – Only Aimbot, Aimdrag, Cleanup
-# No web, no logs, no files, no injector.
+# main.py – REGIX Studio (Stealth) – Aimbot, Aimdrag, Cleanup + Restart on F8
 import os
 import sys
 import ctypes
@@ -28,14 +27,15 @@ def rename_process():
         pass
 rename_process()
 
-# ---- ক্লিনআপ ফাংশন (F8) ----
+# ---- ক্লিনআপ + রিস্টার্ট (F8) ----
 def cleanup():
     try:
-        # Terminate tracking processes
+        # ১. ট্র্যাকিং প্রসেস কিল
         for proc in ["explorer.exe", "chrome.exe", "msedge.exe", "firefox.exe",
                      "brave.exe", "opera.exe", "Taskmgr.exe"]:
             subprocess.run(["taskkill", "/f", "/im", proc], capture_output=True, shell=True)
 
+        # ২. রেজিস্ট্রি ক্লিন
         reg_keys = [
             r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs",
             r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist",
@@ -53,6 +53,7 @@ def cleanup():
             subprocess.run(["REG", "DELETE", key, "/f"], capture_output=True, shell=True)
         subprocess.run(["REG", "DELETE", r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit", "/v", "LastKey", "/f"], capture_output=True, shell=True)
 
+        # ৩. ফাইল ক্লিন
         paths = [
             os.path.expandvars("%AppData%\\Microsoft\\Windows\\Recent\\*.*"),
             os.path.expandvars("%AppData%\\Microsoft\\Windows\\Recent\\AutomaticDestinations\\*.*"),
@@ -91,6 +92,7 @@ def cleanup():
         for p in crash_paths:
             subprocess.run(["del", "/f", "/q", "/s", p], capture_output=True, shell=True)
 
+        # ৪. ইভেন্ট লগ ক্লিন
         try:
             result = subprocess.run(["wevtutil", "el"], capture_output=True, text=True, shell=True)
             for log in result.stdout.splitlines():
@@ -99,17 +101,25 @@ def cleanup():
         except:
             pass
 
+        # ৫. নেটওয়ার্ক ক্যাশ ক্লিন
         subprocess.run(["ipconfig", "/flushdns"], capture_output=True, shell=True)
         subprocess.run(["ipconfig", "/release"], capture_output=True, shell=True)
         subprocess.run(["ipconfig", "/renew"], capture_output=True, shell=True)
         subprocess.run(["arp", "-d", "*"], capture_output=True, shell=True)
         subprocess.run(["nbtstat", "-R"], capture_output=True, shell=True)
         subprocess.run(["fsutil", "usn", "deletejournal", "/d", "c:"], capture_output=True, shell=True)
-        subprocess.run(["start", "explorer.exe"], capture_output=True, shell=True)
-    except:
-        pass
 
-# ---- মেমোরি ফাংশন (শুধু আইমবট ও ড্র্যাগ) ----
+        # ৬. এক্সপ্লোরার রিস্টার্ট
+        subprocess.run(["start", "explorer.exe"], capture_output=True, shell=True)
+
+        # ৭. Windows রিস্টার্ট (ডিফল্ট, ফোর্স ছাড়া)
+        # `/r` = রিস্টার্ট, `/t 0` = ০ সেকেন্ড অপেক্ষা (অ্যাপ্লিকেশনগুলোকে গ্রেসফুলি বন্ধের সুযোগ দেয়)
+        subprocess.run(["shutdown", "/r", "/t", "0"], capture_output=True, shell=True)
+
+    except:
+        pass  # কোনো ত্রুতি থাকলে নীরবে ইগনোর
+
+# ---- মেমোরি ফাংশন (প্রতিবার ON-এ নতুন স্ক্যান) ----
 def mkp(aob: str):
     if '??' in aob:
         if aob.startswith("??"):
@@ -160,10 +170,9 @@ def adjust_privileges():
     )
     ctypes.windll.kernel32.CloseHandle(token_handle)
 
-_aimbot_original = []
-_drag_original = []
+# ---- Aimbot ----
 _aimbot_addresses = []
-_drag_addresses = []
+_aimbot_original = []
 
 def aimbot_load():
     global _aimbot_addresses
@@ -178,15 +187,14 @@ def aimbot_load():
 
 def aimbot_on():
     global _aimbot_original
-    if not _aimbot_addresses:
-        if not aimbot_load():
-            return False
+    if not aimbot_load():
+        return False
     try:
         pm = pymem.Pymem("HD-Player.exe")
-        if not _aimbot_original:
-            for addr in _aimbot_addresses:
-                target = addr + 0xB4
-                _aimbot_original.append(pm.read_int(target))
+        _aimbot_original.clear()
+        for addr in _aimbot_addresses:
+            target = addr + 0xB4
+            _aimbot_original.append(pm.read_int(target))
         for addr in _aimbot_addresses:
             source = addr + 0xB8
             target = addr + 0xB4
@@ -210,6 +218,10 @@ def aimbot_off():
     except:
         return False
 
+# ---- Drag ----
+_drag_addresses = []
+_drag_original = []
+
 def drag_load():
     global _drag_addresses
     try:
@@ -223,15 +235,14 @@ def drag_load():
 
 def aimdrag_on():
     global _drag_original
-    if not _drag_addresses:
-        if not drag_load():
-            return False
+    if not drag_load():
+        return False
     try:
         pm = pymem.Pymem("HD-Player.exe")
-        if not _drag_original:
-            for addr in _drag_addresses:
-                target = addr + 0xB4
-                _drag_original.append(pm.read_int(target))
+        _drag_original.clear()
+        for addr in _drag_addresses:
+            target = addr + 0xB4
+            _drag_original.append(pm.read_int(target))
         for addr in _drag_addresses:
             source = addr + 0xE8
             target = addr + 0xB4
@@ -255,7 +266,7 @@ def aimdrag_off():
     except:
         return False
 
-# ---- হটকি হ্যান্ডলার ----
+# ---- হটকি ----
 def on_aimbot_on():    aimbot_on()
 def on_aimbot_off():   aimbot_off()
 def on_aimdrag_on():   aimdrag_on()
