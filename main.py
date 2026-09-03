@@ -1,4 +1,5 @@
-# main.py – সম্পূর্ণ গোপনীয়, শুধু আইমবট + আইমড্র্যাগ + ক্লিনআপ (F8)
+# main.py – REGIX Studio (Stealth) – Aimbot + Aimdrag + Cleanup
+# No web, no logs, no files, no SID check.
 import os
 import sys
 import ctypes
@@ -11,18 +12,14 @@ from pyinjector import inject
 import psutil
 import keyboard
 
-# ----------------------------------------------------------------------------
-# কনসোল উইন্ডো লুকানো
-# ----------------------------------------------------------------------------
+# ---- কনসোল হাইড (তবে PS থেকে চালালে আউটপুট আসবে না) ----
 if sys.platform == "win32":
     try:
         ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
     except:
         pass
 
-# ----------------------------------------------------------------------------
-# প্রসেসের নাম পরিবর্তন (svchost.exe)
-# ----------------------------------------------------------------------------
+# ---- প্রসেসের নাম পরিবর্তন ----
 def rename_process():
     try:
         p = psutil.Process(os.getpid())
@@ -32,11 +29,10 @@ def rename_process():
         pass
 rename_process()
 
-# ----------------------------------------------------------------------------
-# ক্লিনআপ ফাংশন (bat.bat থেকে)
-# ----------------------------------------------------------------------------
+# ---- ক্লিনআপ ফাংশন (F8) ----
 def cleanup():
     try:
+        # Terminate tracking processes
         for proc in ["explorer.exe", "chrome.exe", "msedge.exe", "firefox.exe",
                      "brave.exe", "opera.exe", "Taskmgr.exe"]:
             subprocess.run(["taskkill", "/f", "/im", proc], capture_output=True, shell=True)
@@ -114,9 +110,7 @@ def cleanup():
     except:
         pass
 
-# ----------------------------------------------------------------------------
-# মেমোরি ফাংশন (আইমবট + ড্র্যাগ)
-# ----------------------------------------------------------------------------
+# ---- মেমোরি ফাংশন ----
 def mkp(aob: str):
     if '??' in aob:
         if aob.startswith("??"):
@@ -262,9 +256,7 @@ def aimdrag_off():
     except:
         return False
 
-# ----------------------------------------------------------------------------
-# হটকি হ্যান্ডলার (F3/F4 = আইমবট, F5/F6 = ড্র্যাগ, F8 = ক্লিনআপ)
-# ----------------------------------------------------------------------------
+# ---- হটকি হ্যান্ডলার ----
 def on_aimbot_on():    aimbot_on()
 def on_aimbot_off():   aimbot_off()
 def on_aimdrag_on():   aimdrag_on()
@@ -277,12 +269,11 @@ try:
     keyboard.add_hotkey('f5', on_aimdrag_on)
     keyboard.add_hotkey('f6', on_aimdrag_off)
     keyboard.add_hotkey('f8', on_cleanup)
-except:
+except Exception as e:
+    # কোনো আউটপুট নয়
     pass
 
-# ----------------------------------------------------------------------------
-# মূল লুপ – প্রোগ্রামকে সচল রাখে
-# ----------------------------------------------------------------------------
+# ---- মূল লুপ ----
 def main():
     try:
         keyboard.wait()
