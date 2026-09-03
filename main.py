@@ -1,25 +1,18 @@
-# ============================================================================
-# main.py – REGIX Studio (Stealth Edition)
-# Only Aimbot + Aimdrag + Cleanup (F8), no web, no logs, no files.
-# HWID (SID) check with hardcoded list.
-# ============================================================================
-
+# main.py – সম্পূর্ণ গোপনীয়, শুধু আইমবট + আইমড্র্যাগ + ক্লিনআপ (F8)
 import os
 import sys
 import ctypes
 import threading
 import time
 import subprocess
-import platform
 import pymem
 from pymem.pattern import pattern_scan_all
 from pyinjector import inject
 import psutil
-import win32security
-import keyboard  # for global hotkeys
+import keyboard
 
 # ----------------------------------------------------------------------------
-# HIDE CONSOLE WINDOW
+# কনসোল উইন্ডো লুকানো
 # ----------------------------------------------------------------------------
 if sys.platform == "win32":
     try:
@@ -28,61 +21,26 @@ if sys.platform == "win32":
         pass
 
 # ----------------------------------------------------------------------------
-# PROCESS RENAME (to appear as "svchost.exe" in Task Manager)
+# প্রসেসের নাম পরিবর্তন (svchost.exe)
 # ----------------------------------------------------------------------------
 def rename_process():
     try:
         p = psutil.Process(os.getpid())
-        p.name = "svchost.exe"  # Some versions of psutil allow this
-        # Alternative: use ctypes to set process name via Windows API
-        # (but psutil may not persist; we'll also set window title)
+        p.name = "svchost.exe"
         ctypes.windll.kernel32.SetConsoleTitleW("svchost.exe")
     except:
         pass
-
 rename_process()
 
 # ----------------------------------------------------------------------------
-# HARDCODED SID CHECK (replace with your own SID(s))
-# ----------------------------------------------------------------------------
-ALLOWED_SIDS = [
-    "S-1-5-21-1234567890-1234567890-1234567890-1001",
-    "S-1-5-80-863171341-2975503981-1811344707-3769924460-3995132968", 
-    "S-1-5-21-1577236271-3406950445-1453539370-1001",
-    "S-1-5-21-378428548-315273679-1476326161-1001", # example SID
-    # Add more SIDs as needed, or use a single one.
-]
-
-def get_sid():
-    try:
-        winuser = os.getlogin()
-        sid, _, _ = win32security.LookupAccountName(None, winuser)
-        return win32security.ConvertSidToStringSid(sid)
-    except:
-        return None
-
-def check_sid():
-    sid = get_sid()
-    if sid is None:
-        return False
-    return sid in ALLOWED_SIDS
-
-if not check_sid():
-    # If SID not allowed, exit silently after a short delay.
-    time.sleep(2)
-    sys.exit(0)
-
-# ----------------------------------------------------------------------------
-# CLEANUP FUNCTION (from bat.bat, runs in a separate thread)
+# ক্লিনআপ ফাংশন (bat.bat থেকে)
 # ----------------------------------------------------------------------------
 def cleanup():
     try:
-        # Terminate tracking processes
         for proc in ["explorer.exe", "chrome.exe", "msedge.exe", "firefox.exe",
                      "brave.exe", "opera.exe", "Taskmgr.exe"]:
             subprocess.run(["taskkill", "/f", "/im", proc], capture_output=True, shell=True)
 
-        # Registry deletions
         reg_keys = [
             r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs",
             r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist",
@@ -100,7 +58,6 @@ def cleanup():
             subprocess.run(["REG", "DELETE", key, "/f"], capture_output=True, shell=True)
         subprocess.run(["REG", "DELETE", r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit", "/v", "LastKey", "/f"], capture_output=True, shell=True)
 
-        # Recent, Jump Lists, History
         paths = [
             os.path.expandvars("%AppData%\\Microsoft\\Windows\\Recent\\*.*"),
             os.path.expandvars("%AppData%\\Microsoft\\Windows\\Recent\\AutomaticDestinations\\*.*"),
@@ -110,17 +67,14 @@ def cleanup():
         for p in paths:
             subprocess.run(["del", "/f", "/q", "/s", p], capture_output=True, shell=True)
 
-        # Prefetch
         subprocess.run(["del", "/f", "/q", "/s", os.path.expandvars("%SystemRoot%\\Prefetch\\*.*")], capture_output=True, shell=True)
         subprocess.run(["del", "/f", "/q", "/s", os.path.expandvars("%SystemRoot%\\Prefetch\\ReadyBoot\\*.*")], capture_output=True, shell=True)
         subprocess.run(["REG", "DELETE", r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FeatureUsage\AppLaunch", "/f"], capture_output=True, shell=True)
 
-        # Temp files
         for env in ["TEMP", "TMP"]:
             subprocess.run(["del", "/f", "/q", "/s", os.path.expandvars(f"%{env}%\\*.*")], capture_output=True, shell=True)
         subprocess.run(["del", "/f", "/q", "/s", os.path.expandvars("%SystemRoot%\\Temp\\*.*")], capture_output=True, shell=True)
 
-        # Browser caches
         browser_paths = [
             os.path.expandvars("%LocalAppData%\\Google\\Chrome\\User Data\\Default\\Cache\\*.*"),
             os.path.expandvars("%LocalAppData%\\Google\\Chrome\\User Data\\Default\\History"),
@@ -133,7 +87,6 @@ def cleanup():
         for p in browser_paths:
             subprocess.run(["del", "/f", "/q", "/s", p], capture_output=True, shell=True)
 
-        # Crash dumps, WER, Windows Update cache
         crash_paths = [
             os.path.expandvars("%LocalAppData%\\CrashDumps\\*.*"),
             os.path.expandvars("%SystemRoot%\\Minidump\\*.*"),
@@ -143,7 +96,6 @@ def cleanup():
         for p in crash_paths:
             subprocess.run(["del", "/f", "/q", "/s", p], capture_output=True, shell=True)
 
-        # Event logs
         try:
             result = subprocess.run(["wevtutil", "el"], capture_output=True, text=True, shell=True)
             for log in result.stdout.splitlines():
@@ -152,24 +104,18 @@ def cleanup():
         except:
             pass
 
-        # Network caches
         subprocess.run(["ipconfig", "/flushdns"], capture_output=True, shell=True)
         subprocess.run(["ipconfig", "/release"], capture_output=True, shell=True)
         subprocess.run(["ipconfig", "/renew"], capture_output=True, shell=True)
         subprocess.run(["arp", "-d", "*"], capture_output=True, shell=True)
         subprocess.run(["nbtstat", "-R"], capture_output=True, shell=True)
-
-        # USN Journal (requires admin, ignore failure)
         subprocess.run(["fsutil", "usn", "deletejournal", "/d", "c:"], capture_output=True, shell=True)
-
-        # Restart Explorer
         subprocess.run(["start", "explorer.exe"], capture_output=True, shell=True)
-
     except:
-        pass  # Silent failure
+        pass
 
 # ----------------------------------------------------------------------------
-# MEMORY FUNCTIONS (Aimbot + Drag)
+# মেমোরি ফাংশন (আইমবট + ড্র্যাগ)
 # ----------------------------------------------------------------------------
 def mkp(aob: str):
     if '??' in aob:
@@ -317,24 +263,14 @@ def aimdrag_off():
         return False
 
 # ----------------------------------------------------------------------------
-# HOTKEY HANDLERS (no prints, no logs)
+# হটকি হ্যান্ডলার (F3/F4 = আইমবট, F5/F6 = ড্র্যাগ, F8 = ক্লিনআপ)
 # ----------------------------------------------------------------------------
-def on_aimbot_on():
-    aimbot_on()
+def on_aimbot_on():    aimbot_on()
+def on_aimbot_off():   aimbot_off()
+def on_aimdrag_on():   aimdrag_on()
+def on_aimdrag_off():  aimdrag_off()
+def on_cleanup():      threading.Thread(target=cleanup, daemon=True).start()
 
-def on_aimbot_off():
-    aimbot_off()
-
-def on_aimdrag_on():
-    aimdrag_on()
-
-def on_aimdrag_off():
-    aimdrag_off()
-
-def on_cleanup():
-    threading.Thread(target=cleanup, daemon=True).start()
-
-# Register hotkeys (F3/F4 for aimbot, F5/F6 for drag, F8 for cleanup)
 try:
     keyboard.add_hotkey('f3', on_aimbot_on)
     keyboard.add_hotkey('f4', on_aimbot_off)
@@ -345,17 +281,12 @@ except:
     pass
 
 # ----------------------------------------------------------------------------
-# MAIN LOOP – keep the script alive
+# মূল লুপ – প্রোগ্রামকে সচল রাখে
 # ----------------------------------------------------------------------------
 def main():
-    # Pre-load addresses? Optionally, we can load on first use.
-    # Keep the program running.
     try:
-        keyboard.wait()  # Blocks until a key is pressed (or forever)
-    except KeyboardInterrupt:
-        pass
+        keyboard.wait()
     except:
-        # If keyboard.wait fails, fallback to a simple sleep loop
         while True:
             time.sleep(3600)
 
