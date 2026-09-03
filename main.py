@@ -1,5 +1,4 @@
-# main.py – REGIX Studio (Stealth) – Based on Reference File's AOB/Offsets
-# প্রতিটি সাফল্য/ব্যর্থতার জন্য বিস্তারিত Windows Notification (MessageBox)
+# main.py – REGIX Studio (Final – Your AOB + Offsets)
 import os
 import sys
 import ctypes
@@ -29,115 +28,69 @@ def rename_process():
         pass
 rename_process()
 
-# ---- নোটিফিকেশন ফাংশন ----
-def show_notification(title, message, icon=0x40):  # 0x40 = Information, 0x10 = Error, 0x30 = Warning
+# ---- নোটিফিকেশন ----
+def show_notification(title, message, icon=0x40):
     try:
         ctypes.windll.user32.MessageBoxW(0, message, title, icon)
     except:
         pass
 
-# ---- ডিবাগ লগ (শুধু ফেইলিউরের জন্য) ----
+# ---- ডিবাগ লগ ----
 DEBUG_LOG = os.path.expandvars("%TEMP%\\regix_debug.log")
-
 def debug_log(msg):
     try:
         with open(DEBUG_LOG, "a") as f:
             f.write(f"{time.strftime('%H:%M:%S')} - {msg}\n")
     except:
         pass
+debug_log("=== REGIX Studio Started (Final) ===")
 
-debug_log("=== REGIX Studio Started (Reference-based) ===")
+# ---- প্যাটার্ন কনভার্টার (সঠিক) ----
+def pattern_to_bytes(pattern_str: str) -> bytes:
+    """
+    Convert pattern string like "FF ?? 00 AB" to bytes with 0x3F for wildcards.
+    pymem's pattern_scan_all uses 0x3F (b'?') as wildcard.
+    """
+    parts = pattern_str.strip().split()
+    result = bytearray()
+    for p in parts:
+        if p == "??":
+            result.append(0x3F)   # wildcard
+        else:
+            try:
+                result.append(int(p, 16))
+            except ValueError:
+                result.append(0x3F)  # fallback
+    return bytes(result)
 
-# ---- ক্লিনআপ + রিস্টার্ট (F8) ----
-def cleanup():
-    try:
-        debug_log("Cleanup started")
-        for proc in ["explorer.exe", "chrome.exe", "msedge.exe", "firefox.exe",
-                     "brave.exe", "opera.exe", "Taskmgr.exe"]:
-            subprocess.run(["taskkill", "/f", "/im", proc], capture_output=True, shell=True)
-        # ... (সব রেজিস্ট্রি, টেম্প, প্রিফেচ ক্লিনআপ – আগের মতোই) ...
-        # সংক্ষেপে দিচ্ছি (সম্পূর্ণ কোডে থাকবে)
-        reg_keys = [
-            r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs",
-            r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist",
-            r"HKEY_CURRENT_USER\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache",
-            r"HKEY_CURRENT_USER\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\BagMRU",
-            r"HKEY_CURRENT_USER\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\Bags",
-            r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU",
-            r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\TypedPaths",
-            r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\OpenSavePidlMRU",
-            r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\LastVisitedPidlMRU",
-            r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\WordWheelQuery",
-            r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit",
-        ]
-        for key in reg_keys:
-            subprocess.run(["REG", "DELETE", key, "/f"], capture_output=True, shell=True)
-        subprocess.run(["REG", "DELETE", r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit", "/v", "LastKey", "/f"], capture_output=True, shell=True)
-        paths = [
-            os.path.expandvars("%AppData%\\Microsoft\\Windows\\Recent\\*.*"),
-            os.path.expandvars("%AppData%\\Microsoft\\Windows\\Recent\\AutomaticDestinations\\*.*"),
-            os.path.expandvars("%AppData%\\Microsoft\\Windows\\Recent\\CustomDestinations\\*.*"),
-            os.path.expandvars("%LocalAppData%\\Microsoft\\Windows\\History\\*.*"),
-        ]
-        for p in paths:
-            subprocess.run(["del", "/f", "/q", "/s", p], capture_output=True, shell=True)
-        subprocess.run(["del", "/f", "/q", "/s", os.path.expandvars("%SystemRoot%\\Prefetch\\*.*")], capture_output=True, shell=True)
-        subprocess.run(["del", "/f", "/q", "/s", os.path.expandvars("%SystemRoot%\\Prefetch\\ReadyBoot\\*.*")], capture_output=True, shell=True)
-        subprocess.run(["REG", "DELETE", r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FeatureUsage\AppLaunch", "/f"], capture_output=True, shell=True)
-        for env in ["TEMP", "TMP"]:
-            subprocess.run(["del", "/f", "/q", "/s", os.path.expandvars(f"%{env}%\\*.*")], capture_output=True, shell=True)
-        subprocess.run(["del", "/f", "/q", "/s", os.path.expandvars("%SystemRoot%\\Temp\\*.*")], capture_output=True, shell=True)
-        browser_paths = [
-            os.path.expandvars("%LocalAppData%\\Google\\Chrome\\User Data\\Default\\Cache\\*.*"),
-            os.path.expandvars("%LocalAppData%\\Google\\Chrome\\User Data\\Default\\History"),
-            os.path.expandvars("%LocalAppData%\\Google\\Chrome\\User Data\\Default\\Download History"),
-            os.path.expandvars("%LocalAppData%\\Microsoft\\Edge\\User Data\\Default\\Cache\\*.*"),
-            os.path.expandvars("%LocalAppData%\\Microsoft\\Edge\\User Data\\Default\\History"),
-            os.path.expandvars("%LocalAppData%\\Microsoft\\Windows\\INetCache\\*.*"),
-            os.path.expandvars("%LocalAppData%\\Microsoft\\Windows\\WebCache\\*.*"),
-        ]
-        for p in browser_paths:
-            subprocess.run(["del", "/f", "/q", "/s", p], capture_output=True, shell=True)
-        crash_paths = [
-            os.path.expandvars("%LocalAppData%\\CrashDumps\\*.*"),
-            os.path.expandvars("%SystemRoot%\\Minidump\\*.*"),
-            os.path.expandvars("%ProgramData%\\Microsoft\\Windows\\WER\\ReportArchive\\*.*"),
-            os.path.expandvars("%SystemRoot%\\SoftwareDistribution\\Download\\*.*"),
-        ]
-        for p in crash_paths:
-            subprocess.run(["del", "/f", "/q", "/s", p], capture_output=True, shell=True)
-        try:
-            result = subprocess.run(["wevtutil", "el"], capture_output=True, text=True, shell=True)
-            for log in result.stdout.splitlines():
-                if log.strip():
-                    subprocess.run(["wevtutil", "cl", log.strip()], capture_output=True, shell=True)
-        except:
-            pass
-        subprocess.run(["ipconfig", "/flushdns"], capture_output=True, shell=True)
-        subprocess.run(["ipconfig", "/release"], capture_output=True, shell=True)
-        subprocess.run(["ipconfig", "/renew"], capture_output=True, shell=True)
-        subprocess.run(["arp", "-d", "*"], capture_output=True, shell=True)
-        subprocess.run(["nbtstat", "-R"], capture_output=True, shell=True)
-        subprocess.run(["fsutil", "usn", "deletejournal", "/d", "c:"], capture_output=True, shell=True)
-        subprocess.run(["start", "explorer.exe"], capture_output=True, shell=True)
-        subprocess.run(["shutdown", "/r", "/t", "0"], capture_output=True, shell=True)
-        debug_log("Cleanup finished")
-    except Exception as e:
-        debug_log(f"Cleanup error: {e}")
+# ---- আপনার দেওয়া প্যাটার্ন (হুবহু) ----
+AIMBOT_PATTERN_STR = "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 00 00 00 00 00 00 00 00 00 00 00 00 00 00 A5 43 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 80 BF"
 
-# ---- রেফারেন্স ফাইল থেকে নেওয়া AOB প্যাটার্ন (র বাইট) ----
-# Note: In pymem, '.' (dot) is the wildcard character
-AIMBOT_PATTERN = b'\xA5\x43\x00\x00\x00\x00\x00\x00..................................................................................................\x00\x00\x00\x00.................\x00\x00...................................\x80\xBF..........\x80'
+DRAG_PATTERN_STR = "FF FF FF FF 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 00 00 00 00 ?? ?? ?? ?? 00 00 00 00 ?? ?? ?? ?? 00 00 00 00 00 00 00 00 00 00 00 00 00 00 A5 43"
 
-# অফসেট (রেফারেন্স ফাইল থেকে)
-READ_OFFSET  = 0x2E   # 46 decimal – source
-WRITE_OFFSET = 0x32   # 50 decimal – target
+# ---- প্যাটার্নকে বাইটে কনভার্ট ----
+AIMBOT_PATTERN = pattern_to_bytes(AIMBOT_PATTERN_STR)
+DRAG_PATTERN = pattern_to_bytes(DRAG_PATTERN_STR)
+
+debug_log(f"Aimbot pattern length: {len(AIMBOT_PATTERN)} bytes")
+debug_log(f"Drag pattern length: {len(DRAG_PATTERN)} bytes")
+
+# ---- আপনার দেওয়া অফসেট ----
+AIMBOT_READ_OFFSET  = 0xAF
+AIMBOT_WRITE_OFFSET = 0xAB
+DRAG_READ_OFFSET    = 0xE8
+DRAG_WRITE_OFFSET   = 0xB4
 
 # ---- গ্লোবাল ----
 _aimbot_addresses = []
-_aimbot_original_rep = []    # WRITE অফসেটের অরিজিনাল
-_aimbot_original_scan = []   # READ অফসেটের অরিজিনাল
+_aimbot_originals = []  # WRITE অফসেটের অরিজিনাল মান
+_aimbot_original_scan = []  # READ অফসেটের অরিজিনাল মান
 _aimbot_active = False
+
+_drag_addresses = []
+_drag_originals = []
+_drag_original_scan = []
+_drag_active = False
 
 def adjust_privileges():
     try:
@@ -168,13 +121,13 @@ def adjust_privileges():
         debug_log(f"AdjustPrivileges error: {e}")
         return False
 
-def scan_addresses(pattern_bytes: bytes) -> list:
+def scan_pattern(pattern_bytes: bytes) -> list:
     """প্যাটার্ন স্ক্যান করে অ্যাড্রেস লিস্ট ফেরত দেয়"""
     try:
         if not adjust_privileges():
             return []
         pm = pymem.Pymem("HD-Player.exe")
-        debug_log(f"Scanning pattern: {pattern_bytes[:20]}...")
+        debug_log(f"Scanning pattern: {pattern_bytes[:30]}...")
         addresses = pattern_scan_all(pm.process_handle, pattern_bytes, return_multiple=True)
         debug_log(f"Found {len(addresses)} addresses")
         pm.close_process()
@@ -186,44 +139,129 @@ def scan_addresses(pattern_bytes: bytes) -> list:
         debug_log(f"Scan error: {e}")
         return []
 
-# ---- Aimbot ON (Swap Logic) ----
+# ---- ক্লিনআপ + রিস্টার্ট (F8) ----
+def cleanup():
+    try:
+        debug_log("Cleanup started")
+        for proc in ["explorer.exe", "chrome.exe", "msedge.exe", "firefox.exe",
+                     "brave.exe", "opera.exe", "Taskmgr.exe"]:
+            subprocess.run(["taskkill", "/f", "/im", proc], capture_output=True, shell=True)
+        
+        reg_keys = [
+            r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs",
+            r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist",
+            r"HKEY_CURRENT_USER\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache",
+            r"HKEY_CURRENT_USER\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\BagMRU",
+            r"HKEY_CURRENT_USER\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\Bags",
+            r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU",
+            r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\TypedPaths",
+            r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\OpenSavePidlMRU",
+            r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\LastVisitedPidlMRU",
+            r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\WordWheelQuery",
+            r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit",
+        ]
+        for key in reg_keys:
+            subprocess.run(["REG", "DELETE", key, "/f"], capture_output=True, shell=True)
+        subprocess.run(["REG", "DELETE", r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit", "/v", "LastKey", "/f"], capture_output=True, shell=True)
+        
+        paths = [
+            os.path.expandvars("%AppData%\\Microsoft\\Windows\\Recent\\*.*"),
+            os.path.expandvars("%AppData%\\Microsoft\\Windows\\Recent\\AutomaticDestinations\\*.*"),
+            os.path.expandvars("%AppData%\\Microsoft\\Windows\\Recent\\CustomDestinations\\*.*"),
+            os.path.expandvars("%LocalAppData%\\Microsoft\\Windows\\History\\*.*"),
+        ]
+        for p in paths:
+            subprocess.run(["del", "/f", "/q", "/s", p], capture_output=True, shell=True)
+        subprocess.run(["del", "/f", "/q", "/s", os.path.expandvars("%SystemRoot%\\Prefetch\\*.*")], capture_output=True, shell=True)
+        subprocess.run(["del", "/f", "/q", "/s", os.path.expandvars("%SystemRoot%\\Prefetch\\ReadyBoot\\*.*")], capture_output=True, shell=True)
+        subprocess.run(["REG", "DELETE", r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FeatureUsage\AppLaunch", "/f"], capture_output=True, shell=True)
+        for env in ["TEMP", "TMP"]:
+            subprocess.run(["del", "/f", "/q", "/s", os.path.expandvars(f"%{env}%\\*.*")], capture_output=True, shell=True)
+        subprocess.run(["del", "/f", "/q", "/s", os.path.expandvars("%SystemRoot%\\Temp\\*.*")], capture_output=True, shell=True)
+        
+        browser_paths = [
+            os.path.expandvars("%LocalAppData%\\Google\\Chrome\\User Data\\Default\\Cache\\*.*"),
+            os.path.expandvars("%LocalAppData%\\Google\\Chrome\\User Data\\Default\\History"),
+            os.path.expandvars("%LocalAppData%\\Google\\Chrome\\User Data\\Default\\Download History"),
+            os.path.expandvars("%LocalAppData%\\Microsoft\\Edge\\User Data\\Default\\Cache\\*.*"),
+            os.path.expandvars("%LocalAppData%\\Microsoft\\Edge\\User Data\\Default\\History"),
+            os.path.expandvars("%LocalAppData%\\Microsoft\\Windows\\INetCache\\*.*"),
+            os.path.expandvars("%LocalAppData%\\Microsoft\\Windows\\WebCache\\*.*"),
+        ]
+        for p in browser_paths:
+            subprocess.run(["del", "/f", "/q", "/s", p], capture_output=True, shell=True)
+        
+        crash_paths = [
+            os.path.expandvars("%LocalAppData%\\CrashDumps\\*.*"),
+            os.path.expandvars("%SystemRoot%\\Minidump\\*.*"),
+            os.path.expandvars("%ProgramData%\\Microsoft\\Windows\\WER\\ReportArchive\\*.*"),
+            os.path.expandvars("%SystemRoot%\\SoftwareDistribution\\Download\\*.*"),
+        ]
+        for p in crash_paths:
+            subprocess.run(["del", "/f", "/q", "/s", p], capture_output=True, shell=True)
+        
+        try:
+            result = subprocess.run(["wevtutil", "el"], capture_output=True, text=True, shell=True)
+            for log in result.stdout.splitlines():
+                if log.strip():
+                    subprocess.run(["wevtutil", "cl", log.strip()], capture_output=True, shell=True)
+        except:
+            pass
+        
+        subprocess.run(["ipconfig", "/flushdns"], capture_output=True, shell=True)
+        subprocess.run(["ipconfig", "/release"], capture_output=True, shell=True)
+        subprocess.run(["ipconfig", "/renew"], capture_output=True, shell=True)
+        subprocess.run(["arp", "-d", "*"], capture_output=True, shell=True)
+        subprocess.run(["nbtstat", "-R"], capture_output=True, shell=True)
+        subprocess.run(["fsutil", "usn", "deletejournal", "/d", "c:"], capture_output=True, shell=True)
+        subprocess.run(["start", "explorer.exe"], capture_output=True, shell=True)
+        subprocess.run(["shutdown", "/r", "/t", "0"], capture_output=True, shell=True)
+        debug_log("Cleanup finished")
+    except Exception as e:
+        debug_log(f"Cleanup error: {e}")
+
+# ---- Aimbot ON ----
 def aimbot_on():
-    global _aimbot_addresses, _aimbot_original_rep, _aimbot_original_scan, _aimbot_active
+    global _aimbot_addresses, _aimbot_originals, _aimbot_original_scan, _aimbot_active
     
     debug_log("aimbot_on called")
     
-    # ১. প্যাটার্ন স্ক্যান
-    _aimbot_addresses = scan_addresses(AIMBOT_PATTERN)
+    _aimbot_addresses = scan_pattern(AIMBOT_PATTERN)
     if not _aimbot_addresses:
-        msg = "Aimbot pattern not found in HD-Player.exe!\n\nPossible reasons:\n1. FreeFire is not running\n2. BlueStacks (HD-Player.exe) is not launched\n3. Game version has changed – pattern needs update\n\nCheck debug log: %TEMP%\\regix_debug.log"
-        show_notification("REGIX Studio – Aimbot Error", msg, 0x10)  # Error icon
+        msg = (
+            "Aimbot pattern not found in HD-Player.exe!\n\n"
+            "Possible reasons:\n"
+            "1. FreeFire is not running\n"
+            "2. BlueStacks (HD-Player.exe) is not launched\n"
+            "3. Game version has changed – pattern needs update\n\n"
+            f"Check debug log: {DEBUG_LOG}"
+        )
+        show_notification("REGIX Studio – Aimbot Error", msg, 0x10)
         debug_log("Aimbot ON failed: No addresses found")
         return False
     
-    debug_log(f"Found {len(_aimbot_addresses)} addresses")
+    debug_log(f"Found {len(_aimbot_addresses)} aimbot addresses")
     
     try:
         pm = pymem.Pymem("HD-Player.exe")
         success_count = 0
-        
-        _aimbot_original_rep.clear()
+        _aimbot_originals.clear()
         _aimbot_original_scan.clear()
         
         for addr in _aimbot_addresses:
             try:
-                target = addr + WRITE_OFFSET  # 0x32
-                source = addr + READ_OFFSET   # 0x2E
+                write_addr = addr + AIMBOT_WRITE_OFFSET  # 0xAB
+                read_addr = addr + AIMBOT_READ_OFFSET   # 0xAF
                 
                 # অরিজিনাল মান সেভ
-                orig_rep = read_bytes(pm.process_handle, target, 4)
-                orig_scan = read_bytes(pm.process_handle, source, 4)
-                _aimbot_original_rep.append(orig_rep)
-                _aimbot_original_scan.append(orig_scan)
+                orig_write = read_bytes(pm.process_handle, write_addr, 4)
+                orig_read = read_bytes(pm.process_handle, read_addr, 4)
+                _aimbot_originals.append(orig_write)
+                _aimbot_original_scan.append(orig_read)
                 
-                # Swap: target ← source, source ← target
-                write_bytes(pm.process_handle, target, orig_scan, 4)
-                write_bytes(pm.process_handle, source, orig_rep, 4)
-                
+                # Swap: write ← read, read ← write
+                write_bytes(pm.process_handle, write_addr, orig_read, 4)
+                write_bytes(pm.process_handle, read_addr, orig_write, 4)
                 success_count += 1
                 
             except Exception as e:
@@ -233,37 +271,36 @@ def aimbot_on():
         
         if success_count > 0:
             _aimbot_active = True
-            msg = f"Aimbot activated successfully!\n\nPatched {success_count}/{len(_aimbot_addresses)} addresses.\n\nREAD offset: 0x{READ_OFFSET:X}\nWRITE offset: 0x{WRITE_OFFSET:X}\n\nPress F4 to disable."
-            show_notification("REGIX Studio – Aimbot ON", msg, 0x40)  # Information icon
-            debug_log(f"Aimbot ON success: {success_count} addresses patched")
+            msg = (
+                f"Aimbot activated successfully!\n\n"
+                f"Patched {success_count}/{len(_aimbot_addresses)} addresses.\n\n"
+                f"READ offset: 0x{AIMBOT_READ_OFFSET:X}\n"
+                f"WRITE offset: 0x{AIMBOT_WRITE_OFFSET:X}\n\n"
+                "Press F4 to disable."
+            )
+            show_notification("REGIX Studio – Aimbot ON", msg, 0x40)
+            debug_log(f"Aimbot ON success: {success_count} addresses")
             return True
         else:
-            msg = "No addresses were patched.\n\nCheck if the game is running and try again.\n\nDebug log: %TEMP%\\regix_debug.log"
-            show_notification("REGIX Studio – Aimbot Error", msg, 0x10)
-            debug_log("Aimbot ON failed: 0 addresses patched")
+            show_notification("REGIX Studio – Aimbot Error", "No addresses were patched.\nCheck debug log.", 0x10)
             return False
             
     except pymem.exception.ProcessNotFound:
-        msg = "HD-Player.exe process not found!\n\nMake sure BlueStacks is running with FreeFire."
-        show_notification("REGIX Studio – Process Error", msg, 0x10)
-        debug_log("Aimbot ON failed: Process not found")
+        show_notification("REGIX Studio – Process Error", "HD-Player.exe not found!", 0x10)
         return False
     except Exception as e:
-        msg = f"Unexpected error during injection:\n\n{str(e)}\n\nCheck debug log: %TEMP%\\regix_debug.log"
-        show_notification("REGIX Studio – Error", msg, 0x10)
+        show_notification("REGIX Studio – Error", f"Unexpected error:\n{str(e)}", 0x10)
         debug_log(f"Aimbot ON error: {e}")
         return False
 
-# ---- Aimbot OFF (Restore Originals) ----
+# ---- Aimbot OFF ----
 def aimbot_off():
-    global _aimbot_addresses, _aimbot_original_rep, _aimbot_original_scan, _aimbot_active
+    global _aimbot_addresses, _aimbot_originals, _aimbot_original_scan, _aimbot_active
     
     debug_log("aimbot_off called")
     
-    if not _aimbot_addresses or not _aimbot_original_rep or not _aimbot_original_scan:
-        msg = "No active aimbot to disable.\n\nPress F3 first to activate aimbot."
-        show_notification("REGIX Studio – Aimbot OFF", msg, 0x30)  # Warning icon
-        debug_log("Aimbot OFF failed: No active aimbot")
+    if not _aimbot_addresses or not _aimbot_originals:
+        show_notification("REGIX Studio – Aimbot OFF", "No active aimbot to disable.\nPress F3 first.", 0x30)
         return False
     
     try:
@@ -272,14 +309,12 @@ def aimbot_off():
         
         for idx, addr in enumerate(_aimbot_addresses):
             try:
-                target = addr + WRITE_OFFSET
-                source = addr + READ_OFFSET
-                
-                if idx < len(_aimbot_original_rep) and idx < len(_aimbot_original_scan):
-                    write_bytes(pm.process_handle, target, _aimbot_original_rep[idx], 4)
-                    write_bytes(pm.process_handle, source, _aimbot_original_scan[idx], 4)
+                write_addr = addr + AIMBOT_WRITE_OFFSET
+                read_addr = addr + AIMBOT_READ_OFFSET
+                if idx < len(_aimbot_originals) and idx < len(_aimbot_original_scan):
+                    write_bytes(pm.process_handle, write_addr, _aimbot_originals[idx], 4)
+                    write_bytes(pm.process_handle, read_addr, _aimbot_original_scan[idx], 4)
                     success_count += 1
-                    
             except Exception as e:
                 debug_log(f"Restore address {hex(addr)} failed: {e}")
         
@@ -287,62 +322,56 @@ def aimbot_off():
         
         _aimbot_active = False
         _aimbot_addresses = []
-        _aimbot_original_rep.clear()
+        _aimbot_originals.clear()
         _aimbot_original_scan.clear()
         
-        msg = f"Aimbot disabled successfully!\n\nRestored {success_count} addresses to original values."
+        msg = f"Aimbot disabled!\nRestored {success_count} addresses."
         show_notification("REGIX Studio – Aimbot OFF", msg, 0x40)
-        debug_log(f"Aimbot OFF success: {success_count} addresses restored")
+        debug_log(f"Aimbot OFF success: {success_count}")
         return True
         
     except pymem.exception.ProcessNotFound:
-        msg = "HD-Player.exe not found.\n\nCannot restore original values."
-        show_notification("REGIX Studio – Process Error", msg, 0x10)
-        debug_log("Aimbot OFF failed: Process not found")
+        show_notification("REGIX Studio – Process Error", "HD-Player.exe not found!\nCannot restore.", 0x10)
         return False
     except Exception as e:
-        msg = f"Error while disabling aimbot:\n\n{str(e)}"
-        show_notification("REGIX Studio – Error", msg, 0x10)
+        show_notification("REGIX Studio – Error", f"Error disabling aimbot:\n{str(e)}", 0x10)
         debug_log(f"Aimbot OFF error: {e}")
         return False
 
-# ---- Aimdrag (আপনার আগের DRAG প্যাটার্ন ব্যবহার করছি, কিন্তু রেফারেন্সের মতো বাইট ফরম্যাটে) ----
-DRAG_PATTERN = b'\xFF\xFF\xFF\xFF\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xFF\xFF\xFF\xFF\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' + b'\x3F'*16 + b'\x00\x00\x00\x00' + b'\x3F'*4 + b'\x00\x00\x00\x00' + b'\x3F'*4 + b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xA5\x43'
-
-_drag_addresses = []
-_drag_original_rep = []
-_drag_original_scan = []
-_drag_active = False
-
+# ---- Aimdrag ON ----
 def aimdrag_on():
-    global _drag_addresses, _drag_original_rep, _drag_original_scan, _drag_active
+    global _drag_addresses, _drag_originals, _drag_original_scan, _drag_active
     
     debug_log("aimdrag_on called")
     
-    _drag_addresses = scan_addresses(DRAG_PATTERN)
+    _drag_addresses = scan_pattern(DRAG_PATTERN)
     if not _drag_addresses:
-        msg = "Aimdrag pattern not found!\n\nCheck if FreeFire is running."
-        show_notification("REGIX Studio – Aimdrag Error", msg, 0x10)
+        show_notification("REGIX Studio – Aimdrag Error", "Aimdrag pattern not found!\nCheck debug log.", 0x10)
         debug_log("Aimdrag ON failed: No addresses found")
         return False
+    
+    debug_log(f"Found {len(_drag_addresses)} drag addresses")
     
     try:
         pm = pymem.Pymem("HD-Player.exe")
         success_count = 0
-        _drag_original_rep.clear()
+        _drag_originals.clear()
         _drag_original_scan.clear()
         
         for addr in _drag_addresses:
             try:
-                target = addr + WRITE_OFFSET  # 0x32
-                source = addr + READ_OFFSET   # 0x2E
-                orig_rep = read_bytes(pm.process_handle, target, 4)
-                orig_scan = read_bytes(pm.process_handle, source, 4)
-                _drag_original_rep.append(orig_rep)
-                _drag_original_scan.append(orig_scan)
-                write_bytes(pm.process_handle, target, orig_scan, 4)
-                write_bytes(pm.process_handle, source, orig_rep, 4)
+                write_addr = addr + DRAG_WRITE_OFFSET  # 0xB4
+                read_addr = addr + DRAG_READ_OFFSET   # 0xE8
+                
+                orig_write = read_bytes(pm.process_handle, write_addr, 4)
+                orig_read = read_bytes(pm.process_handle, read_addr, 4)
+                _drag_originals.append(orig_write)
+                _drag_original_scan.append(orig_read)
+                
+                write_bytes(pm.process_handle, write_addr, orig_read, 4)
+                write_bytes(pm.process_handle, read_addr, orig_write, 4)
                 success_count += 1
+                
             except Exception as e:
                 debug_log(f"Drag address {hex(addr)} failed: {e}")
         
@@ -350,28 +379,33 @@ def aimdrag_on():
         
         if success_count > 0:
             _drag_active = True
-            msg = f"Aimdrag activated!\n\nPatched {success_count}/{len(_drag_addresses)} addresses."
+            msg = (
+                f"Aimdrag activated!\n\n"
+                f"Patched {success_count}/{len(_drag_addresses)} addresses.\n\n"
+                f"READ offset: 0x{DRAG_READ_OFFSET:X}\n"
+                f"WRITE offset: 0x{DRAG_WRITE_OFFSET:X}\n\n"
+                "Press F6 to disable."
+            )
             show_notification("REGIX Studio – Aimdrag ON", msg, 0x40)
-            debug_log(f"Aimdrag ON success: {success_count} addresses")
+            debug_log(f"Aimdrag ON success: {success_count}")
             return True
         else:
             show_notification("REGIX Studio – Aimdrag Error", "No addresses were patched.", 0x10)
             return False
             
     except Exception as e:
-        msg = f"Aimdrag error: {str(e)}"
-        show_notification("REGIX Studio – Error", msg, 0x10)
+        show_notification("REGIX Studio – Error", f"Aimdrag error:\n{str(e)}", 0x10)
         debug_log(f"Aimdrag ON error: {e}")
         return False
 
+# ---- Aimdrag OFF ----
 def aimdrag_off():
-    global _drag_addresses, _drag_original_rep, _drag_original_scan, _drag_active
+    global _drag_addresses, _drag_originals, _drag_original_scan, _drag_active
     
     debug_log("aimdrag_off called")
     
-    if not _drag_addresses or not _drag_original_rep or not _drag_original_scan:
-        msg = "No active aimdrag to disable.\n\nPress F5 first to activate."
-        show_notification("REGIX Studio – Aimdrag OFF", msg, 0x30)
+    if not _drag_addresses or not _drag_originals:
+        show_notification("REGIX Studio – Aimdrag OFF", "No active aimdrag to disable.\nPress F5 first.", 0x30)
         return False
     
     try:
@@ -380,29 +414,29 @@ def aimdrag_off():
         
         for idx, addr in enumerate(_drag_addresses):
             try:
-                target = addr + WRITE_OFFSET
-                source = addr + READ_OFFSET
-                if idx < len(_drag_original_rep) and idx < len(_drag_original_scan):
-                    write_bytes(pm.process_handle, target, _drag_original_rep[idx], 4)
-                    write_bytes(pm.process_handle, source, _drag_original_scan[idx], 4)
+                write_addr = addr + DRAG_WRITE_OFFSET
+                read_addr = addr + DRAG_READ_OFFSET
+                if idx < len(_drag_originals) and idx < len(_drag_original_scan):
+                    write_bytes(pm.process_handle, write_addr, _drag_originals[idx], 4)
+                    write_bytes(pm.process_handle, read_addr, _drag_original_scan[idx], 4)
                     success_count += 1
             except Exception as e:
                 debug_log(f"Restore drag address failed: {e}")
         
         pm.close_process()
+        
         _drag_active = False
         _drag_addresses = []
-        _drag_original_rep.clear()
+        _drag_originals.clear()
         _drag_original_scan.clear()
         
-        msg = f"Aimdrag disabled! Restored {success_count} addresses."
+        msg = f"Aimdrag disabled!\nRestored {success_count} addresses."
         show_notification("REGIX Studio – Aimdrag OFF", msg, 0x40)
         debug_log(f"Aimdrag OFF success: {success_count}")
         return True
         
     except Exception as e:
-        msg = f"Error disabling aimdrag: {str(e)}"
-        show_notification("REGIX Studio – Error", msg, 0x10)
+        show_notification("REGIX Studio – Error", f"Error disabling aimdrag:\n{str(e)}", 0x10)
         debug_log(f"Aimdrag OFF error: {e}")
         return False
 
@@ -441,13 +475,15 @@ except Exception as e:
 # ---- বুট-আপ চেক ----
 def boot_check():
     debug_log("Performing boot check...")
-    test_addrs = scan_addresses(AIMBOT_PATTERN)
+    test_addrs = scan_pattern(AIMBOT_PATTERN)
     if test_addrs:
         debug_log(f"Boot check: Found {len(test_addrs)} aimbot addresses")
-        # show_notification("REGIX Studio – Ready", f"Aimbot pattern found!\n{len(test_addrs)} addresses available.\n\nPress F3 to activate.", 0x40)
+        show_notification("REGIX Studio – Ready", 
+            f"Aimbot pattern found!\n{len(test_addrs)} addresses available.\n\nPress F3 to activate.", 0x40)
     else:
         debug_log("Boot check: No aimbot pattern found")
-        # show_notification("REGIX Studio – Waiting", "Aimbot pattern not found.\nMake sure FreeFire is running and press F3.", 0x30)
+        show_notification("REGIX Studio – Waiting", 
+            "Aimbot pattern not found.\nMake sure FreeFire is running.\nPress F3 to retry.", 0x30)
 
 # ---- মূল লুপ ----
 def main():
