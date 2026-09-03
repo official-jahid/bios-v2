@@ -1,4 +1,5 @@
-# main.py – REGIX Studio (Stealth) – Aimbot, Aimdrag, Cleanup + Restart on F8
+# main.py – REGIX Studio (Fixed Aimbot & Aimdrag)
+# প্রতিবার F3/F5 চাপলে নতুন স্ক্যান – পরবর্তী ম্যাচেও কাজ করবে।
 import os
 import sys
 import ctypes
@@ -30,12 +31,10 @@ rename_process()
 # ---- ক্লিনআপ + রিস্টার্ট (F8) ----
 def cleanup():
     try:
-        # ১. ট্র্যাকিং প্রসেস কিল
+        # (ক্লিনআপ ফাংশন আগের মতোই, সংক্ষেপে দিচ্ছি)
         for proc in ["explorer.exe", "chrome.exe", "msedge.exe", "firefox.exe",
                      "brave.exe", "opera.exe", "Taskmgr.exe"]:
             subprocess.run(["taskkill", "/f", "/im", proc], capture_output=True, shell=True)
-
-        # ২. রেজিস্ট্রি ক্লিন
         reg_keys = [
             r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs",
             r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist",
@@ -52,8 +51,6 @@ def cleanup():
         for key in reg_keys:
             subprocess.run(["REG", "DELETE", key, "/f"], capture_output=True, shell=True)
         subprocess.run(["REG", "DELETE", r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit", "/v", "LastKey", "/f"], capture_output=True, shell=True)
-
-        # ৩. ফাইল ক্লিন
         paths = [
             os.path.expandvars("%AppData%\\Microsoft\\Windows\\Recent\\*.*"),
             os.path.expandvars("%AppData%\\Microsoft\\Windows\\Recent\\AutomaticDestinations\\*.*"),
@@ -62,15 +59,12 @@ def cleanup():
         ]
         for p in paths:
             subprocess.run(["del", "/f", "/q", "/s", p], capture_output=True, shell=True)
-
         subprocess.run(["del", "/f", "/q", "/s", os.path.expandvars("%SystemRoot%\\Prefetch\\*.*")], capture_output=True, shell=True)
         subprocess.run(["del", "/f", "/q", "/s", os.path.expandvars("%SystemRoot%\\Prefetch\\ReadyBoot\\*.*")], capture_output=True, shell=True)
         subprocess.run(["REG", "DELETE", r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FeatureUsage\AppLaunch", "/f"], capture_output=True, shell=True)
-
         for env in ["TEMP", "TMP"]:
             subprocess.run(["del", "/f", "/q", "/s", os.path.expandvars(f"%{env}%\\*.*")], capture_output=True, shell=True)
         subprocess.run(["del", "/f", "/q", "/s", os.path.expandvars("%SystemRoot%\\Temp\\*.*")], capture_output=True, shell=True)
-
         browser_paths = [
             os.path.expandvars("%LocalAppData%\\Google\\Chrome\\User Data\\Default\\Cache\\*.*"),
             os.path.expandvars("%LocalAppData%\\Google\\Chrome\\User Data\\Default\\History"),
@@ -82,7 +76,6 @@ def cleanup():
         ]
         for p in browser_paths:
             subprocess.run(["del", "/f", "/q", "/s", p], capture_output=True, shell=True)
-
         crash_paths = [
             os.path.expandvars("%LocalAppData%\\CrashDumps\\*.*"),
             os.path.expandvars("%SystemRoot%\\Minidump\\*.*"),
@@ -91,8 +84,6 @@ def cleanup():
         ]
         for p in crash_paths:
             subprocess.run(["del", "/f", "/q", "/s", p], capture_output=True, shell=True)
-
-        # ৪. ইভেন্ট লগ ক্লিন
         try:
             result = subprocess.run(["wevtutil", "el"], capture_output=True, text=True, shell=True)
             for log in result.stdout.splitlines():
@@ -100,46 +91,56 @@ def cleanup():
                     subprocess.run(["wevtutil", "cl", log.strip()], capture_output=True, shell=True)
         except:
             pass
-
-        # ৫. নেটওয়ার্ক ক্যাশ ক্লিন
         subprocess.run(["ipconfig", "/flushdns"], capture_output=True, shell=True)
         subprocess.run(["ipconfig", "/release"], capture_output=True, shell=True)
         subprocess.run(["ipconfig", "/renew"], capture_output=True, shell=True)
         subprocess.run(["arp", "-d", "*"], capture_output=True, shell=True)
         subprocess.run(["nbtstat", "-R"], capture_output=True, shell=True)
         subprocess.run(["fsutil", "usn", "deletejournal", "/d", "c:"], capture_output=True, shell=True)
-
-        # ৬. এক্সপ্লোরার রিস্টার্ট
         subprocess.run(["start", "explorer.exe"], capture_output=True, shell=True)
-
-        # ৭. Windows রিস্টার্ট (ডিফল্ট, ফোর্স ছাড়া)
+        # Windows Restart (graceful)
         subprocess.run(["shutdown", "/r", "/t", "0"], capture_output=True, shell=True)
     except:
         pass
 
-# ---- মেমোরি ফাংশন ----
-def mkp(aob: str):
-    if '??' in aob:
-        if aob.startswith("??"):
-            aob = f" {aob}"
-            n = aob.replace(" ??", ".").replace(" ", "\\x")
-            b = bytes(n.encode())
+# ---- সঠিক mkp ফাংশন ----
+def mkp(pattern_str: str) -> bytes:
+    """
+    Convert pattern string like "FF ?? 00 AB" to bytes with 0x3F for wildcards.
+    pymem's pattern_scan_all uses 0x3F (b'?') as wildcard.
+    """
+    parts = pattern_str.split()
+    result = bytearray()
+    for p in parts:
+        if p == "??":
+            result.append(0x3F)   # wildcard
         else:
-            n = aob.replace(" ??", ".").replace(" ", "\\x")
-            b = bytes(f"\\x{n}".encode())
-        return b
-    else:
-        m = aob.replace(" ", "\\x")
-        c = bytes(f"\\x{m}".encode())
-        return c
+            # hex string, e.g., "FF" -> 0xFF
+            try:
+                result.append(int(p, 16))
+            except ValueError:
+                # যদি কোনো অক্ষর বাদ পড়ে, তাহলে সেটিকেও wildcard ধরব
+                result.append(0x3F)
+    return bytes(result)
 
-# ---- আপনার দেওয়া AOB প্যাটার্ন (আইমবট) ----
+# ---- আপনার দেওয়া প্যাটার্ন (হুবহু) ----
 AIMBOT_PATTERN = "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 00 00 00 00 00 00 00 00 00 00 00 00 00 00 A5 43 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 80 BF"
-
-# ---- আপনার দেওয়া AOB প্যাটার্ন (আইমড্র্যাগ) ----
 DRAG_PATTERN = "FF FF FF FF 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 FF FF FF FF 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 00 00 00 00 ?? ?? ?? ?? 00 00 00 00 ?? ?? ?? ?? 00 00 00 00 00 00 00 00 00 00 00 00 00 00 A5 43"
 
+# ---- অফসেট ----
+AIMBOT_READ_OFFSET  = 0xAF
+AIMBOT_WRITE_OFFSET = 0xAB
+DRAG_READ_OFFSET    = 0xE8
+DRAG_WRITE_OFFSET   = 0xB4
+
+# ---- অ্যাড্রেস গ্লোবাল ----
+_aimbot_addresses = []
+_aimbot_original = []
+_drag_addresses = []
+_drag_original = []
+
 def adjust_privileges():
+    # SeDebugPrivilege সক্রিয় করা
     SE_DEBUG_NAME = "SeDebugPrivilege"
     SE_PRIVILEGE_ENABLED = 0x00000002
     token_handle = ctypes.c_void_p()
@@ -162,36 +163,33 @@ def adjust_privileges():
     )
     ctypes.windll.kernel32.CloseHandle(token_handle)
 
-# ---- Aimbot (আপনার দেওয়া অফসেট: READ=0xAF, WRITE=0xAB) ----
-_aimbot_addresses = []
-_aimbot_original = []
-
-def aimbot_load():
-    global _aimbot_addresses
+def scan_pattern(pattern_bytes: bytes) -> list:
+    """প্যাটার্ন স্ক্যান করে অ্যাড্রেসের লিস্ট ফেরত দেয়, ব্যর্থ হলে খালি লিস্ট"""
     try:
         adjust_privileges()
         pm = pymem.Pymem("HD-Player.exe")
-        pattern = mkp(AIMBOT_PATTERN)
-        _aimbot_addresses = pattern_scan_all(pm.process_handle, pattern, return_multiple=True)
-        return bool(_aimbot_addresses)
+        return pattern_scan_all(pm.process_handle, pattern_bytes, return_multiple=True)
     except:
-        return False
+        return []
 
+# ---- Aimbot ----
 def aimbot_on():
-    global _aimbot_original
-    if not aimbot_load():
+    global _aimbot_addresses, _aimbot_original
+    # ১. নতুন স্ক্যান
+    _aimbot_addresses = scan_pattern(mkp(AIMBOT_PATTERN))
+    if not _aimbot_addresses:
         return False
     try:
         pm = pymem.Pymem("HD-Player.exe")
         _aimbot_original.clear()
-        # READ অফসেট 0xAF থেকে মান পড়ে WRITE অফসেট 0xAB-তে লেখা
+        # ২. অরিজিনাল ভ্যালু সেভ (WRITE অফসেট থেকে)
         for addr in _aimbot_addresses:
-            source = addr + 0xAF
-            target = addr + 0xAB
+            target = addr + AIMBOT_WRITE_OFFSET
             _aimbot_original.append(pm.read_int(target))
+        # ৩. প্যাচ (READ থেকে WRITE-এ কপি)
         for addr in _aimbot_addresses:
-            source = addr + 0xAF
-            target = addr + 0xAB
+            source = addr + AIMBOT_READ_OFFSET
+            target = addr + AIMBOT_WRITE_OFFSET
             val = pm.read_int(source)
             pm.write_int(target, val)
         return True
@@ -199,13 +197,13 @@ def aimbot_on():
         return False
 
 def aimbot_off():
-    global _aimbot_original
+    global _aimbot_addresses, _aimbot_original
     if not _aimbot_addresses or not _aimbot_original:
         return False
     try:
         pm = pymem.Pymem("HD-Player.exe")
         for idx, addr in enumerate(_aimbot_addresses):
-            target = addr + 0xAB
+            target = addr + AIMBOT_WRITE_OFFSET
             if idx < len(_aimbot_original):
                 pm.write_int(target, _aimbot_original[idx])
         _aimbot_original.clear()
@@ -213,34 +211,21 @@ def aimbot_off():
     except:
         return False
 
-# ---- Aimdrag (আপনার দেওয়া অফসেট: READ=0xE8, WRITE=0xB4) ----
-_drag_addresses = []
-_drag_original = []
-
-def drag_load():
-    global _drag_addresses
-    try:
-        adjust_privileges()
-        pm = pymem.Pymem("HD-Player.exe")
-        pattern = mkp(DRAG_PATTERN)
-        _drag_addresses = pattern_scan_all(pm.process_handle, pattern, return_multiple=True)
-        return bool(_drag_addresses)
-    except:
-        return False
-
+# ---- Aimdrag ----
 def aimdrag_on():
-    global _drag_original
-    if not drag_load():
+    global _drag_addresses, _drag_original
+    _drag_addresses = scan_pattern(mkp(DRAG_PATTERN))
+    if not _drag_addresses:
         return False
     try:
         pm = pymem.Pymem("HD-Player.exe")
         _drag_original.clear()
         for addr in _drag_addresses:
-            target = addr + 0xB4
+            target = addr + DRAG_WRITE_OFFSET
             _drag_original.append(pm.read_int(target))
         for addr in _drag_addresses:
-            source = addr + 0xE8
-            target = addr + 0xB4
+            source = addr + DRAG_READ_OFFSET
+            target = addr + DRAG_WRITE_OFFSET
             val = pm.read_int(source)
             pm.write_int(target, val)
         return True
@@ -248,13 +233,13 @@ def aimdrag_on():
         return False
 
 def aimdrag_off():
-    global _drag_original
+    global _drag_addresses, _drag_original
     if not _drag_addresses or not _drag_original:
         return False
     try:
         pm = pymem.Pymem("HD-Player.exe")
         for idx, addr in enumerate(_drag_addresses):
-            target = addr + 0xB4
+            target = addr + DRAG_WRITE_OFFSET
             if idx < len(_drag_original):
                 pm.write_int(target, _drag_original[idx])
         _drag_original.clear()
@@ -262,21 +247,12 @@ def aimdrag_off():
     except:
         return False
 
-# ---- হটকি ----
-def on_aimbot_on():
-    aimbot_on()
-
-def on_aimbot_off():
-    aimbot_off()
-
-def on_aimdrag_on():
-    aimdrag_on()
-
-def on_aimdrag_off():
-    aimdrag_off()
-
-def on_cleanup():
-    threading.Thread(target=cleanup, daemon=True).start()
+# ---- হটকি হ্যান্ডলার ----
+def on_aimbot_on():   aimbot_on()
+def on_aimbot_off():  aimbot_off()
+def on_aimdrag_on():  aimdrag_on()
+def on_aimdrag_off(): aimdrag_off()
+def on_cleanup():     threading.Thread(target=cleanup, daemon=True).start()
 
 try:
     keyboard.add_hotkey('f3', on_aimbot_on)
