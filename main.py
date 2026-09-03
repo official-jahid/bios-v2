@@ -12,14 +12,14 @@ from pyinjector import inject
 import psutil
 import keyboard
 
-# ---- কনসোল হাইড (তবে PS থেকে চালালে আউটপুট আসবে না) ----
+# ---- কনসোল হাইড ----
 if sys.platform == "win32":
     try:
         ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
     except:
         pass
 
-# ---- প্রসেসের নাম পরিবর্তন ----
+# ---- প্রসেস নাম পরিবর্তন ----
 def rename_process():
     try:
         p = psutil.Process(os.getpid())
@@ -29,10 +29,9 @@ def rename_process():
         pass
 rename_process()
 
-# ---- ক্লিনআপ ফাংশন (F8) ----
+# ---- ক্লিনআপ ----
 def cleanup():
     try:
-        # Terminate tracking processes
         for proc in ["explorer.exe", "chrome.exe", "msedge.exe", "firefox.exe",
                      "brave.exe", "opera.exe", "Taskmgr.exe"]:
             subprocess.run(["taskkill", "/f", "/im", proc], capture_output=True, shell=True)
@@ -256,7 +255,7 @@ def aimdrag_off():
     except:
         return False
 
-# ---- হটকি হ্যান্ডলার ----
+# ---- হটকি ----
 def on_aimbot_on():    aimbot_on()
 def on_aimbot_off():   aimbot_off()
 def on_aimdrag_on():   aimdrag_on()
@@ -269,8 +268,7 @@ try:
     keyboard.add_hotkey('f5', on_aimdrag_on)
     keyboard.add_hotkey('f6', on_aimdrag_off)
     keyboard.add_hotkey('f8', on_cleanup)
-except Exception as e:
-    # কোনো আউটপুট নয়
+except:
     pass
 
 # ---- মূল লুপ ----
