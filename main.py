@@ -55,8 +55,8 @@ DRAG_PATTERN = "FF FF FF FF ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 00 00 00 00 00 00 0
 # ---- main branch's offsets ----
 AIMBOT_READ_OFFSET  = 0xBC
 AIMBOT_WRITE_OFFSET = 0xB8
-DRAG_READ_OFFSET    = 0x100
-DRAG_WRITE_OFFSET   = 0x394
+DRAG_READ_OFFSET    = 0x64
+DRAG_WRITE_OFFSET   = 0x18A
 
 # ---- Globals ----
 _aimbot_addresses = []
